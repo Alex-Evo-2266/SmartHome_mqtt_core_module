@@ -2,3 +2,5 @@ name: mqtt_core_module
 name_module: mqtt_core_module
 multiply: false
 type: core
+dependencies:
+  - "paho-mqtt"
