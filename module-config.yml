@@ -1,4 +1,4 @@
-name: MQTT_device_module
-name_module: MQTT_device_module
+name: mqtt_core_module
+name_module: mqtt_core_module
 multiply: false
 type: core
