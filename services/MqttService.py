@@ -195,7 +195,7 @@ class MqttService(BaseService):
         """
         try:
             if topic not in cls.callbacks:
-                cls.callbacks[topic] = []
+                cls.callbacks[topic] = {}
                 if cls.client:
                     cls.client.subscribe(f"{topic}/#")
                     logger.info(f"Subscribed to topic hierarchy: {topic}/#")
