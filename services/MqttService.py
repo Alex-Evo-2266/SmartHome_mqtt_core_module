@@ -7,6 +7,7 @@ from ..utils import update_topic_in_dict
 from app.pkg import __config__
 from ..settings import MQTT_PASSWORD, MQTT_BROKER_IP, MQTT_PORT, MQTT_USERNAME, MQTT_MESSAGES
 from app.configuration.settings import SERVICE_DATA_POLL
+from typing import Dict, Awaitable
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ logger.setLevel(logging.INFO)
 
 class MqttService(BaseService):
     client = None
-    callbacks = {}  # Словарь для хранения колбэков по топикам
+    callbacks: Dict[str, Dict[str, Awaitable]] = {}  # Словарь для хранения колбэков по топикам
     _connection_attempts = 0
     MAX_CONNECTION_ATTEMPTS = 3
 
@@ -149,7 +150,7 @@ class MqttService(BaseService):
             callback_count = 0
             for topic_pattern, callbacks in cls.callbacks.items():
                 if cls.topic_matches(topic_pattern, msg.topic):
-                    for callback in callbacks:
+                    for callback in callbacks.values():
                         try:
                             await callback(msg.topic, msg.payload.decode())
                             callback_count += 1
@@ -188,7 +189,7 @@ class MqttService(BaseService):
         return topic.startswith(pattern)
 
     @classmethod
-    def subscribe(cls, topic, callback):
+    def subscribe(cls, topic, key, callback):
         """
         Регистрация колбэка для определённого топика.
         """
@@ -200,21 +201,21 @@ class MqttService(BaseService):
                     logger.info(f"Subscribed to topic hierarchy: {topic}/#")
                     logger.debug(f"Current subscriptions: {cls.callbacks.keys()}")
 
-            cls.callbacks[topic].append(callback)
+            cls.callbacks[topic][key] = callback
             logger.info(f"Added callback for topic: {topic}. Total callbacks: {len(cls.callbacks[topic])}")
         except Exception as e:
             logger.error(f"Error in subscribe: {str(e)}", exc_info=True)
 
     @classmethod
-    def unsubscribe(cls, topic, callback=None):
+    def unsubscribe(cls, topic, key=None):
         """
         Отписка от топика или удаление конкретного колбэка.
         """
         if topic in cls.callbacks:
-            if callback:
-                cls.callbacks[topic] = [cb for cb in cls.callbacks[topic] if cb != callback]
+            if key:
+                cls.callbacks[topic] = {key2: call for key2, call in cls.callbacks[topic].items() if key2 != key}
                 logger.info(f"Callback removed for topic: {topic}")
-            if not cls.callbacks[topic]:  # Если больше нет колбэков
+            if not cls.callbacks[topic].values():  # Если больше нет колбэков
                 del cls.callbacks[topic]
                 if cls.client:
                     cls.client.unsubscribe(f"{topic}/#")

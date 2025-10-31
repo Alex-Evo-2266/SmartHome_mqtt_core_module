@@ -42,9 +42,14 @@ class Module(BaseModule):
         )
 
         if mqtt_service:
-            mqtt_service.subscribe("", device_set_value)
+            mqtt_service.subscribe("", "mqttDevice",device_set_value)
         
 
         await mqtt_service.start()
 
-
+    async def stop(cls):
+        services: ObservableDict = servicesDataPoll.get(SERVICE_POLL)
+        mqtt_service: Optional[MqttService] = services.get(MQTT_SERVICE_PATH)
+        if mqtt_service:
+            mqtt_service.unsubscribe("", "mqttDevice")
+        await super().stop()
