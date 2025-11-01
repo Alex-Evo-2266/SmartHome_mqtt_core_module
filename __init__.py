@@ -66,7 +66,7 @@ class Module(BaseModule):
             mqtt_service.subscribe("", "mqttDevice",device_set_value)
         
 
-        await mqtt_service.start()
+        await schedule_restart()
 
     async def stop(cls):
         services: ObservableDict = servicesDataPoll.get(SERVICE_POLL)
