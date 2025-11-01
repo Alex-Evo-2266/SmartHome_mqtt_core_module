@@ -9,6 +9,9 @@ import asyncio
 from typing import Optional
 
 class Module(BaseModule):
+
+    restart_task: asyncio.Task | None = None
+    debounce_delay = 0.5  # время ожидания после последнего изменения
     
     @classmethod
     async def start(cls):
@@ -19,26 +22,22 @@ class Module(BaseModule):
         mqtt_service: Optional[MqttService] = services.get(MQTT_SERVICE_PATH)
         service_dara.set(MQTT_MESSAGES, {})
 
-        restart_task: asyncio.Task | None = None
-        debounce_delay = 0.5  # время ожидания после последнего изменения
-
         async def schedule_restart(*_):
             """Асинхронно откладывает рестарт mqtt_service"""
-            global restart_task
 
             # если уже запланирован — отменяем старый
-            if restart_task and not restart_task.done():
-                restart_task.cancel()
+            if cls.restart_task and not cls.restart_task.done():
+                cls.restart_task.cancel()
 
             async def delayed_restart():
                 try:
-                    await asyncio.sleep(debounce_delay)
+                    await asyncio.sleep(cls.debounce_delay)
                     await mqtt_service.restart()
                 except asyncio.CancelledError:
                     pass  # нормально, просто отменили предыдущий таймер
 
             # создаём новую задачу
-            restart_task = asyncio.create_task(delayed_restart())
+            cls.restart_task = asyncio.create_task(delayed_restart())
 
         print(mqtt_service)
 
