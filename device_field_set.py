@@ -1,80 +1,153 @@
+# import json
+# import logging
+# from app.ingternal.device.arrays.DevicesArray import DevicesArray
+# from app.ingternal.device.interface.device_class import IDevice
+# from app.ingternal.device.schemas.enums import ReceivedDataFormat
+# from .settings import MQTT_DEVICE_CLASS
+
+# # Настройка логирования
+# logger = logging.getLogger(__name__)
+
+# async def device_set_value(topik, value):
+
+
+#     logger.info("Processing MQTT message...")
+
+#     try:
+#         # Получаем все устройства
+#         devices = DevicesArray.all()
+#         if not devices:
+#             logger.warning("No devices found in DevicesArray")
+#             return
+
+#         for device_cond in devices:
+#             device: IDevice = device_cond.device
+#             class_device = device.get_class()
+#             address_device = device.get_address()
+#             type_message = device.get_type_command()
+
+#             if class_device != MQTT_DEVICE_CLASS:
+#                 continue
+
+#             fields = device.get_fields()
+#             if not fields:
+#                 logger.warning(f"Device {address_device} has no fields, skipping...")
+#                 continue
+
+#             data = value
+
+#             if type_message == ReceivedDataFormat.JSON:
+#                 logger.info(f"Processing JSON message for device {address_device}")
+#                 print("p5600 3")
+#                 # Получаем данные из токена
+#                 if data is None or address_device != topik:
+#                     logger.warning(f"No data extracted for device {address_device}, skipping...")
+#                     continue
+#                 print("p5600 4", data)
+
+#                 try:
+#                     json_data = json.loads(data)
+#                 except json.JSONDecodeError:
+#                     logger.error(f"Invalid JSON data for device {address_device}: {data}")
+#                     continue
+#                 print("p5600", fields)
+
+#                 for field in fields:
+#                     field_address = field.get_address()
+#                     if field_address in json_data:
+#                         new_data = json_data.get(field_address, None)
+#                         if new_data is None:
+#                             continue
+#                         logger.info(f"Setting field {field_address} for device {address_device} to {new_data}")
+#                         print("p5600 56", field_address, new_data)
+#                         field.set(str(new_data))
+#             elif type_message == ReceivedDataFormat.STRING:
+#                 logger.info(f"Processing STRING message for device {address_device}")
+
+#                 for field in fields:
+#                     field_address = field.get_address()
+#                     full_address = f"{address_device}/{field_address}"
+
+#                     if data is None or full_address != topik:
+#                         logger.warning(f"No data found for field {field_address} in device {address_device}, skipping...")
+#                         continue
+
+#                     logger.info(f"Setting field {field_address} for device {address_device} to {data}")
+#                     field.set(data)
+#     except Exception as e:
+#         print(e)
+
+#     logger.info("MQTT message processing complete.")
+
 import json
 import logging
+from app.ingternal.modules.struct.DeviceEventDispatcher import dispatcher, DeviceEvent
 from app.ingternal.device.arrays.DevicesArray import DevicesArray
-from app.ingternal.device.interface.device_class import IDevice
 from app.ingternal.device.schemas.enums import ReceivedDataFormat
-from .settings import MQTT_DEVICE_CLASS
 
-# Настройка логирования
 logger = logging.getLogger(__name__)
 
-async def device_set_value(topik, value):
+async def device_set_value(topic: str, payload: str):
+    """
+    Универсальный MQTT callback.
+    topic может быть:
+        - просто device.address
+        - device.address/field_address
+    payload может быть:
+        - JSON {"field1": "val1", ...}
+        - STRING "val"
+    """
 
+    if not payload:
+        logger.warning("Empty MQTT payload for topic %s", topic)
+        return
 
-    logger.info("Processing MQTT message...")
+    # Попытка найти устройство по DevicesArray
+    device_cond = None
+    base_address = topic.split("/")[0]
 
-    try:
-        # Получаем все устройства
-        devices = DevicesArray.all()
-        if not devices:
-            logger.warning("No devices found in DevicesArray")
+    for d in DevicesArray.all():
+        if d.device.get_address() == base_address:
+            device_cond = d
+            break
+
+    if not device_cond:
+        logger.warning("No device found for address %s", base_address)
+        return
+
+    device = device_cond.device
+    system_name = device_cond.id
+
+    changes = {}
+
+    # JSON payload
+    if device.get_type_command() == ReceivedDataFormat.JSON:
+        try:
+            data = json.loads(payload)
+            if isinstance(data, dict):
+                changes = {k: str(v) for k, v in data.items()}
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON payload for device %s: %s", system_name, payload)
             return
 
-        for device_cond in devices:
-            device: IDevice = device_cond.device
-            class_device = device.get_class()
-            address_device = device.get_address()
-            type_message = device.get_type_command()
+    # STRING payload (поле конкретное)
+    elif device.get_type_command() == ReceivedDataFormat.STRING:
+        parts = topic.split("/")
+        if len(parts) < 2:
+            logger.warning("STRING MQTT topic missing field part: %s", topic)
+            return
+        field_id = parts[1]
+        changes = {field_id: payload}
 
-            if class_device != MQTT_DEVICE_CLASS:
-                continue
+    if not changes:
+        logger.debug("No changes parsed from MQTT message for device %s", system_name)
+        return
 
-            fields = device.get_fields()
-            if not fields:
-                logger.warning(f"Device {address_device} has no fields, skipping...")
-                continue
+    event = DeviceEvent(
+        system_name=system_name,
+        source="mqtt",
+        changes=changes
+    )
 
-            data = value
-
-            if type_message == ReceivedDataFormat.JSON:
-                logger.info(f"Processing JSON message for device {address_device}")
-                print("p5600 3")
-                # Получаем данные из токена
-                if data is None or address_device != topik:
-                    logger.warning(f"No data extracted for device {address_device}, skipping...")
-                    continue
-                print("p5600 4", data)
-
-                try:
-                    json_data = json.loads(data)
-                except json.JSONDecodeError:
-                    logger.error(f"Invalid JSON data for device {address_device}: {data}")
-                    continue
-                print("p5600", fields)
-
-                for field in fields:
-                    field_address = field.get_address()
-                    if field_address in json_data:
-                        new_data = json_data.get(field_address, None)
-                        if new_data is None:
-                            continue
-                        logger.info(f"Setting field {field_address} for device {address_device} to {new_data}")
-                        print("p5600 56", field_address, new_data)
-                        field.set(str(new_data))
-            elif type_message == ReceivedDataFormat.STRING:
-                logger.info(f"Processing STRING message for device {address_device}")
-
-                for field in fields:
-                    field_address = field.get_address()
-                    full_address = f"{address_device}/{field_address}"
-
-                    if data is None or full_address != topik:
-                        logger.warning(f"No data found for field {field_address} in device {address_device}, skipping...")
-                        continue
-
-                    logger.info(f"Setting field {field_address} for device {address_device} to {data}")
-                    field.set(data)
-    except Exception as e:
-        print(e)
-
-    logger.info("MQTT message processing complete.")
+    await dispatcher.emit(event)
+    logger.debug("MQTT event emitted: %s", event)
