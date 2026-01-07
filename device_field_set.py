@@ -80,12 +80,12 @@
 #     logger.info("MQTT message processing complete.")
 
 import json
-import logging
 from app.ingternal.modules.struct.DeviceEventDispatcher import dispatcher, DeviceEvent
 from app.ingternal.device.arrays.DevicesArray import DevicesArray
 from app.ingternal.device.schemas.enums import ReceivedDataFormat
+from app.ingternal.logs import MyLogger
 
-logger = logging.getLogger(__name__)
+logger = MyLogger().get_logger(__name__)
 
 async def device_set_value(topic: str, payload: str):
     """

@@ -1,6 +1,6 @@
 import paho.mqtt.client as mqtt
 import logging, asyncio
-from app.ingternal.logs.logs import LogManager
+from app.ingternal.logs import MyLogger
 from app.ingternal.modules.classes.baseService import BaseService
 from app.ingternal.modules.arrays.serviceDataPoll import servicesDataPoll, ObservableDict
 from ..utils import update_topic_in_dict
@@ -10,10 +10,7 @@ from app.configuration.settings import SERVICE_DATA_POLL
 from typing import Dict, Awaitable
 
 # Настройка логирования
-logger = logging.getLogger(__name__)
-logsHandler = LogManager("mqttServiceLogs", level=logging.INFO)
-logger.addHandler(logsHandler.get_file_handler())
-logger.setLevel(logging.INFO)
+logger = MyLogger().get_logger(__name__)
 
 class MqttService(BaseService):
     client = None

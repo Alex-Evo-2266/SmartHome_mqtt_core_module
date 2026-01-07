@@ -1,6 +1,6 @@
 import json
-import logging
 from typing import Optional
+from app.ingternal.logs import MyLogger
 from app.ingternal.device.classes.baseDevice import BaseDevice
 from ..services.MqttService import MqttService
 from ..settings import MQTT_SERVICE_PATH
@@ -11,7 +11,7 @@ from app.ingternal.device.schemas.config import ConfigSchema
 
 
 # Настройка логирования
-logger = logging.getLogger(__name__)
+logger = MyLogger().get_logger(__name__)
 
 class MQTTDevice(BaseDevice):
 
