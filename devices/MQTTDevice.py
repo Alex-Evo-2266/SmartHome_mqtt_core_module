@@ -17,14 +17,14 @@ class MQTTDevice(BaseDevice):
 
     device_config = ConfigSchema(class_img="MQTT_device_module/logo.png")
 
-    def set_value(self, field_id: str, value: str, script:bool = False):
+    async def set_value(self, field_id: str, value: str, *, script:bool = False, save_status:bool = False):
         """
         Устанавливает значение для указанного поля и отправляет команду через MQTT.
         
         :param field_id: ID поля
         :param value: Значение для установки
         """
-        super().set_value(field_id, value)
+        await super().set_value(field_id, value, script=script, save_status=save_status)
         # Получаем MQTT сервис
         services:ObservableDict = servicesDataPoll.get(SERVICE_POLL)
         mqtt_service: Optional[MqttService] = services.get(MQTT_SERVICE_PATH)
