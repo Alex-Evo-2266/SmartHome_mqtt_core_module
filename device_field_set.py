@@ -78,7 +78,6 @@
 #         print(e)
 
 #     logger.info("MQTT message processing complete.")
-
 import json
 from app.ingternal.modules.struct.DeviceEventDispatcher import dispatcher, DeviceEvent
 from app.ingternal.device.arrays.DevicesArray import DevicesArray
@@ -87,60 +86,72 @@ from app.ingternal.logs import MyLogger
 
 logger = MyLogger().get_logger(__name__)
 
-async def device_set_value(topic: str, payload: str):
-    """
-    Универсальный MQTT callback.
-    topic может быть:
-        - просто device.address
-        - device.address/field_address
-    payload может быть:
-        - JSON {"field1": "val1", ...}
-        - STRING "val"
-    """
 
+def split_topic(topic: str) -> list[str]:
+    return [p for p in topic.split("/") if p]
+
+
+async def device_set_value(topic: str, payload: str):
     if not payload:
         logger.warning("Empty MQTT payload for topic %s", topic)
         return
 
-    # Попытка найти устройство по DevicesArray
-    device_cond = None
-    base_address = topic.split("/")[0]
+    topic_parts = split_topic(topic)
 
+    # 1️⃣ Игнорируем set
+    if topic_parts and topic_parts[-1] == "set":
+        logger.debug("Ignore outgoing control topic: %s", topic)
+        return
+
+    device_cond = None
+    device_address_parts = None
+
+    # 2️⃣ Ищем устройство по ПРЕФИКСУ
     for d in DevicesArray.all():
-        if d.device.get_address() == base_address:
+        addr_parts = split_topic(d.device.get_address())
+
+        if topic_parts[:len(addr_parts)] == addr_parts:
             device_cond = d
+            device_address_parts = addr_parts
             break
 
     if not device_cond:
-        logger.warning("No device found for address %s", base_address)
+        logger.warning("No device matched MQTT topic %s", topic)
         return
 
     device = device_cond.device
     system_name = device_cond.id
 
+    tail = topic_parts[len(device_address_parts):]  # то, что после address
     changes = {}
 
-    # JSON payload
+    # 3️⃣ JSON payload (весь device)
     if device.get_type_command() == ReceivedDataFormat.JSON:
         try:
             data = json.loads(payload)
-            if isinstance(data, dict):
-                changes = {k: str(v) for k, v in data.items()}
+            if not isinstance(data, dict):
+                logger.warning("JSON payload is not dict: %s", payload)
+                return
+
+            changes = {k: str(v) for k, v in data.items()}
         except json.JSONDecodeError:
             logger.error("Invalid JSON payload for device %s: %s", system_name, payload)
             return
 
-    # STRING payload (поле конкретное)
+    # 4️⃣ STRING payload (одно поле)
     elif device.get_type_command() == ReceivedDataFormat.STRING:
-        parts = topic.split("/")
-        if len(parts) < 2:
-            logger.warning("STRING MQTT topic missing field part: %s", topic)
+        if not tail:
+            logger.warning("STRING payload but no field in topic: %s", topic)
             return
-        field_id = parts[1]
-        changes = {field_id: payload}
+
+        field_address = tail[0]
+        field = device.get_field_by_address(field_address)
+        if not field:
+            return
+        changes = {field.get_name(): payload}
 
     if not changes:
-        logger.debug("No changes parsed from MQTT message for device %s", system_name)
+        logger.debug("No changes parsed for device %s from topic %s", system_name, topic)
         return
 
     event = DeviceEvent(
@@ -150,4 +161,10 @@ async def device_set_value(topic: str, payload: str):
     )
 
     await dispatcher.emit(event)
-    logger.debug("MQTT event emitted: %s", event)
+
+    logger.debug(
+        "MQTT event emitted: device=%s topic=%s changes=%s",
+        system_name,
+        topic,
+        changes
+    )
