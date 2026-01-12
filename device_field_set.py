@@ -79,7 +79,7 @@
 
 #     logger.info("MQTT message processing complete.")
 import json
-from app,core.ports.device_event_dispatcher import dispatcher
+from app.core.ports.device_event_dispatcher import dispatcher
 from app.core.state.event import DeviceEvent
 from app.core.state.get_store import get_container
 from app.schemas.device.enums import ReceivedDataFormat
