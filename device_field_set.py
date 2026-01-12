@@ -79,10 +79,11 @@
 
 #     logger.info("MQTT message processing complete.")
 import json
-from app.ingternal.modules.struct.DeviceEventDispatcher import dispatcher, DeviceEvent
-from app.ingternal.device.arrays.DevicesArray import DevicesArray
-from app.ingternal.device.schemas.enums import ReceivedDataFormat
-from app.ingternal.logs import MyLogger
+from app,core.ports import dispatcher
+from app.core.state.event import DeviceEvent
+from app.core.state.get_store import get_container
+from app.schemas.device.enums import ReceivedDataFormat
+from app.pkg.logger import MyLogger
 
 logger = MyLogger().get_logger(__name__)
 
@@ -107,7 +108,7 @@ async def device_set_value(topic: str, payload: str):
     device_address_parts = None
 
     # 2️⃣ Ищем устройство по ПРЕФИКСУ
-    for d in DevicesArray.all():
+    for d in get_container().connect_store.all():
         addr_parts = split_topic(d.device.get_address())
 
         if topic_parts[:len(addr_parts)] == addr_parts:

@@ -1,12 +1,12 @@
 import paho.mqtt.client as mqtt
 import logging, asyncio
-from app.ingternal.logs import MyLogger
-from app.ingternal.modules.classes.baseService import BaseService
-from app.ingternal.modules.arrays.serviceDataPoll import servicesDataPoll, ObservableDict
+from app.pkg.logger import MyLogger
+from app.core.ports.module.baseService import BaseService
+from app.core.state.ObservableDict import servicesDataPoll, ObservableDict
 from ..utils import update_topic_in_dict
-from app.pkg import __config__
+from app.pkg.config.core import __config__
 from ..settings import MQTT_PASSWORD, MQTT_BROKER_IP, MQTT_PORT, MQTT_USERNAME, MQTT_MESSAGES
-from app.configuration.settings import SERVICE_DATA_POLL
+from app.bootstrap.const import SERVICE_DATA_POLL
 from typing import Dict, Awaitable
 
 # Настройка логирования

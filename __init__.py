@@ -1,9 +1,9 @@
-from app.ingternal.modules.classes.baseModules import BaseModule
-from app.ingternal.modules.arrays.serviceDataPoll import servicesDataPoll, ObservableDict
-from app.configuration.settings import SERVICE_POLL, SERVICE_DATA_POLL
+from app.core.ports.module.baseModules import BaseModule
+from app.core.state.ObservableDict import servicesDataPoll, ObservableDict
+from app.bootstrap.const import SERVICE_POLL, SERVICE_DATA_POLL
 from .services.MqttService import MqttService
 from .settings import MQTT_SERVICE_PATH, MQTT_PASSWORD, MQTT_BROKER_IP, MQTT_PORT, MQTT_USERNAME, MQTT_MESSAGES
-from app.pkg import itemConfig, ConfigItemType, __config__
+from app.pkg.config.core import itemConfig, ConfigItemType, __config__
 from .device_field_set import device_set_value
 import asyncio
 from typing import Optional

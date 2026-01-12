@@ -1,13 +1,13 @@
 import json
 from typing import Optional
-from app.ingternal.logs import MyLogger
-from app.ingternal.device.classes.baseDevice import BaseDevice
+from app.pkg.logger import MyLogger
+from app.core.entities.device.baseDevice import BaseDevice
 from ..services.MqttService import MqttService
 from ..settings import MQTT_SERVICE_PATH
-from app.ingternal.modules.arrays.serviceDataPoll import servicesDataPoll, ObservableDict
-from app.configuration.settings import SERVICE_POLL
-from app.ingternal.device.schemas.enums import ReceivedDataFormat
-from app.ingternal.device.schemas.config import ConfigSchema
+from app.core.state.ObservableDict import servicesDataPoll, ObservableDict
+from app.bootstrap.const import SERVICE_POLL
+from app.schemas.device.enums import ReceivedDataFormat
+from app.schemas.device.config import ConfigSchema
 
 
 # Настройка логирования
