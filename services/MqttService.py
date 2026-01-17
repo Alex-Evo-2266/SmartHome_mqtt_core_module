@@ -8,6 +8,7 @@ from app.pkg.config.core import __config__
 from ..settings import MQTT_PASSWORD, MQTT_BROKER_IP, MQTT_PORT, MQTT_USERNAME, MQTT_MESSAGES
 from app.bootstrap.const import SERVICE_DATA_POLL
 from typing import Dict, Awaitable
+from ..callback_helpers import _run_callback_with_debug, _watch_task
 
 # Настройка логирования
 logger = MyLogger().get_logger(__name__)
@@ -141,21 +142,38 @@ class MqttService(BaseService):
             topics = services_data.get(MQTT_MESSAGES)
             new_topics = update_topic_in_dict(msg.topic, msg.payload.decode(), topics)
             logger.debug(f"topics {new_topics}")
-            await services_data.set_async(MQTT_MESSAGES, new_topics)
+            loop = asyncio.get_running_loop()
+            loop.create_task(services_data.set_async(MQTT_MESSAGES, new_topics)) 
 
             # Вызов всех подходящих колбэков (с учётом иерархии)
             callback_count = 0
             for topic_pattern, callbacks in cls.callbacks.items():
                 if cls.topic_matches(topic_pattern, msg.topic):
                     for callback in callbacks.values():
-                        try:
-                            await callback(msg.topic, msg.payload.decode())
-                            callback_count += 1
-                        except Exception as e:
-                            logger.error(
-                                    f"Callback error for topic {msg.topic}: {str(e)}",
-                                    exc_info=True
-                                )
+                        task = loop.create_task(
+                            _run_callback_with_debug(
+                                callback,
+                                msg.topic,
+                                msg.payload.decode(),
+                                topic_pattern,
+                            )
+                        )
+
+                        loop.create_task(
+                            _watch_task(task, callback, msg.topic, msg.payload.decode())
+                        )
+                        callback_count += 1
+                        # try:
+                        #     loop.create_task(
+                        #         callback(msg.topic, msg.payload.decode())
+                        #     )
+                        #     # await callback(msg.topic, msg.payload.decode())
+                        #     callback_count += 1
+                        # except Exception as e:
+                        #     logger.error(
+                        #             f"Callback error for topic {msg.topic}: {str(e)}",
+                        #             exc_info=True
+                        #         )
             if callback_count > 0:
                 logger.debug(f"Executed {callback_count} callbacks for topic {msg.topic}")
         except Exception as e:
